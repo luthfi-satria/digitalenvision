@@ -31,7 +31,7 @@ export class AccountDocuments {
   address?: string;
 
   @Column({ type: 'varchar', length: 10, nullable: true })
-  gmtOffsite?: string;
+  gmtOffset?: string;
 
   @Column({ type: 'date', nullable: true })
   dob?: Date;

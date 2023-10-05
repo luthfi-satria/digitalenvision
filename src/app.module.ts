@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseService } from './database/database.service';
 import { UsersModule } from './users/users.module';
-
+import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module';
       imports: [ConfigModule],
       useClass: DatabaseService,
     }),
+    ScheduleModule.forRoot(),
     UsersModule,
   ],
   controllers: [AppController],

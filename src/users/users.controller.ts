@@ -1,17 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  UseInterceptors,
-  UploadedFile,
-  Res,
-  Logger,
-  Delete,
-} from '@nestjs/common';
+import { Body, Controller, Param, Post, Put, Delete } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserDto } from './dto/users.dto';
 

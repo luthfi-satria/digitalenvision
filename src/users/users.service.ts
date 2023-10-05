@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { UserDto } from './dto/users.dto';
 import {
   IResponse,
@@ -17,6 +12,7 @@ import { HttpService } from '@nestjs/axios';
 import { map, catchError, lastValueFrom } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class UsersService implements UserServiceInterface {
   constructor(
@@ -94,7 +90,7 @@ export class UsersService implements UserServiceInterface {
 
   async update(id: number, data: UserDto): Promise<IResponse> {
     try {
-        // FIND EXISTING USER
+      // FIND EXISTING USER
       const findUser = await this.userRepo.findOneBy({ id: id });
 
       // IF FOUND THEN REPLACE THE EXISTING ONE WITH INPUT DATA
@@ -204,16 +200,6 @@ export class UsersService implements UserServiceInterface {
     }
   }
 
-  async sendMail(data: any): Promise<any> {
-    try {
-      // send to https://email-service.digitalenvision.com.au/send-email
-      return data;
-    } catch (err) {
-      Logger.log('[ERROR] sendMail => ', err);
-      throw err;
-    }
-  }
-
   async worldTimeApi(timezone: string): Promise<any> {
     try {
       const axios = this.httpService
@@ -231,6 +217,109 @@ export class UsersService implements UserServiceInterface {
       return await lastValueFrom(axios);
     } catch (error) {
       Logger.log('[ERROR] WORLD TIME API =>', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_HOUR, { name: 'Sending birthday' })
+  async birthdayScheduller(): Promise<IResponse> {
+    try {
+      const adate = new Date();
+      const time = adate.getHours();
+      const path = `birthday/user.json`;
+      // STORE LIST IN FILE WHEN THE DAY START AT 0 AM
+      if (time == 0) {
+        const findUser = await this.userRepo
+          .createQueryBuilder('user')
+          .where(`MONTH(CONVERT_TZ(dob, '+00:00', gmtOffset)) = MONTH(NOW())`)
+          .andWhere(`DAY(CONVERT_TZ(dob, '+00:00', gmtOffset)) = DAY(NOW())`)
+          .getMany();
+        if (findUser) {
+          const emailUser = [];
+          for (const items of findUser) {
+            emailUser.push({
+              status: 'waiting',
+              emailBody: {
+                email: 'test@digitalenvision.com.au',
+                message: `Hey, ${items.firstName} ${items.lastName} it's your birthday`,
+              },
+            });
+          }
+
+          if (emailUser.length > 0) {
+            if (!fs.existsSync('./birthday')) {
+              fs.mkdirSync('./birthday', { recursive: true });
+            }
+            const jsonData = JSON.stringify(emailUser);
+            fs.writeFile(path, jsonData, function (err) {
+              if (err) throw err;
+            });
+          }
+
+          return {
+            success: true,
+            message: 'successfully write the file',
+            data: emailUser,
+          } as IResponse;
+        }
+      } else if (time >= 9) {
+        // WHEN THE TIME AT 9AM THEN SEND EMAIL TO THE USER
+        const rawData = fs.readFileSync(
+          join(process.cwd(), './' + path),
+          'utf-8',
+        );
+        const jsonData = JSON.parse(rawData);
+
+        if (jsonData) {
+          for (const user in jsonData) {
+            if (jsonData[user].status == 'waiting') {
+              const sendMail = await this.sendMail(jsonData[user].emailBody);
+              if (sendMail?.status == 'sent') {
+                jsonData[user].status = 'sent';
+              }
+            }
+          }
+          const newJson = JSON.stringify(jsonData);
+          fs.writeFile(path, newJson, function (err) {
+            if (err) throw err;
+          });
+        }
+
+        const response: IResponse = {
+          success: true,
+          message: 'successfully Sending user birthday',
+          data: jsonData,
+        };
+        return response;
+      }
+    } catch (error) {
+      Logger.log('[ERROR] Birthday Scheduller', error);
+      throw error;
+    }
+  }
+
+  async sendMail(data: any): Promise<any> {
+    try {
+      const axios = this.httpService
+        .post('https://email-service.digitalenvision.com.au/send-email', data, {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        })
+        .pipe(
+          map((res) => {
+            return res?.data;
+          }),
+        )
+        .pipe(
+          catchError((err) => {
+            throw new ForbiddenException('Api is not available', err);
+          }),
+        );
+      return await lastValueFrom(axios);
+    } catch (err) {
+      Logger.log('[ERROR] sendMail => ', err);
+      throw err;
     }
   }
 }

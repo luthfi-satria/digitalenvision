@@ -12,6 +12,7 @@ export interface UserServiceInterface {
   register(data: UserDto): Promise<IResponse>;
   update(id: number, data: UserDto): Promise<IResponse>;
   delete(id: number): Promise<IResponse>;
+  birthdayScheduller(): Promise<IResponse>;
   sendMail(data: any): Promise<any>;
   readTimezone(data: any): Promise<any>;
   worldTimeApi(timezone: string): Promise<any>;

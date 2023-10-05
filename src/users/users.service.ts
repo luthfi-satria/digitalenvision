@@ -226,6 +226,7 @@ export class UsersService implements UserServiceInterface {
       const adate = new Date();
       const time = adate.getHours();
       const path = `birthday/user.json`;
+      console.log('SCHEDULLER RUN AT => ', time);
       // STORE LIST IN FILE WHEN THE DAY START AT 0 AM
       if (time == 0) {
         const findUser = await this.userRepo
